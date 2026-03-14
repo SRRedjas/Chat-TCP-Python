@@ -26,5 +26,5 @@ client.connect((server, 5000))
 threading.Thread(target=recibir, args=(client,)).start()
 
 while True:
-    msg = input("Tú: ")
+    msg = input("")
     client.sendall(msg.encode())

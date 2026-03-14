@@ -1,11 +1,24 @@
 import socket
 import threading
-from db import init_db, guardar_mensaje
+from db import init_db, guardar_mensaje, validar_usuario
 
 clientes = []
 
 def manejar_cliente(conn, addr):
-    usuario = f"{addr[0]}:{addr[1]}"
+    conn.sendall(b"Usuario:")
+    usuario = conn.recv(1024).decode().strip()
+    #usuario = f"{addr[0]}:{addr[1]}"
+    conn.sendall(b"Clave:")
+    password = conn.recv(1024).decode().strip()
+
+    if not validar_usuario(usuario, password):
+        conn.sendall(b"Credenciales incorrectas. conexion cerrada. \n")
+        conn.close()
+        return 
+    usuario = usuario+f" en {addr[0]}"
+    print(usuario)
+    conn.sendall(b"Bienvenido")
+
     while True:
         msg = conn.recv(1024).decode()
         if not msg:

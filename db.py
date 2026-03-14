@@ -18,6 +18,15 @@ def init_db():
         )
     """)
     conn.commit()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS usuarios(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario TEXT,
+            password TEXT
+        )
+    """)
+
     conn.close()
 
 def guardar_mensaje(usuario, texto):
@@ -26,3 +35,12 @@ def guardar_mensaje(usuario, texto):
     cursor.execute("INSERT INTO mensajes (usuario, texto) VALUES (?, ?)", (usuario, texto))
     conn.commit()
     conn.close()
+
+def validar_usuario(usuario, password):
+    conn = sqlite3.connect("chat.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM usuarios WHERE usuario = ? AND password = ?", (usuario, password))
+    usuario = cursor.fetchone()
+    return usuario
+
+
