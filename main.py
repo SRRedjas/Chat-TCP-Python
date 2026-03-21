@@ -6,6 +6,7 @@ clientes = []
 
 def manejar_cliente(conn, addr):
     conn.sendall(b"Usuario:")
+
     usuario = conn.recv(1024).decode().strip()
     #usuario = f"{addr[0]}:{addr[1]}"
     conn.sendall(b"Clave:")
@@ -15,7 +16,7 @@ def manejar_cliente(conn, addr):
         conn.sendall(b"Credenciales incorrectas. conexion cerrada. \n")
         conn.close()
         return 
-    usuario = usuario+f" en {addr[0]}"
+    
     print(usuario)
     conn.sendall(b"Bienvenido")
 
