@@ -1,46 +1,57 @@
 import sqlite3
+import hashlib
+
+
+def _hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
 
 def init_db():
-    conn = sqlite3.connect("chat.db")
-    cursor = conn.cursor()
+    with sqlite3.connect("chat.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS mensajes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario TEXT,
+                texto TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario TEXT UNIQUE,
+                password TEXT
+            )
+        """)
+        conn.commit()
 
-    cursor.execute("""
-        DROP TABLE IF EXISTS mensajes
-    """)
-    conn.commit()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mensajes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario TEXT,
-            texto TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+def crear_usuario(usuario, password):
+    with sqlite3.connect("chat.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO usuarios (usuario, password) VALUES (?, ?)",
+            (usuario, _hash_password(password))
         )
-    """)
-    conn.commit()
+        conn.commit()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario TEXT,
-            password TEXT
-        )
-    """)
-
-    conn.close()
 
 def guardar_mensaje(usuario, texto):
-    conn = sqlite3.connect("chat.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO mensajes (usuario, texto) VALUES (?, ?)", (usuario, texto))
-    conn.commit()
-    conn.close()
+    with sqlite3.connect("chat.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO mensajes (usuario, texto) VALUES (?, ?)",
+            (usuario, texto)
+        )
+        conn.commit()
+
 
 def validar_usuario(usuario, password):
-    conn = sqlite3.connect("chat.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios WHERE usuario = ? AND password = ?", (usuario, password))
-    usuario = cursor.fetchone()
-    return usuario
-
-
+    with sqlite3.connect("chat.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM usuarios WHERE usuario = ? AND password = ?",
+            (usuario, _hash_password(password))
+        )
+        return cursor.fetchone()
