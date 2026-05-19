@@ -1,9 +1,14 @@
 import json
 
+_TRANSAC_KEYS = ("tipo", "cuenta_origen", "cuenta_destino", "monto", "concepto")
+
 
 def send_packet(conn, data):
-    msg = json.dumps(data) + "\n"
-    conn.sendall(msg.encode())
+    conn.sendall((json.dumps(data) + "\n").encode())
+
+
+def send_raw(conn, text):
+    conn.sendall((text + "\n").encode())
 
 
 class PacketReader:
@@ -18,4 +23,12 @@ class PacketReader:
                 return None
             self.buffer += chunk
         line, self.buffer = self.buffer.split(b"\n", 1)
-        return json.loads(line.decode())
+        decoded = line.decode()
+        try:
+            return json.loads(decoded)
+        except json.JSONDecodeError:
+            parts = decoded.split("|")
+            if parts[0] == "TRANSAC" and len(parts) == 6:
+                return {"type": "transac", "trama": decoded,
+                        **dict(zip(_TRANSAC_KEYS, parts[1:]))}
+            return None
