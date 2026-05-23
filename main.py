@@ -11,12 +11,14 @@ _TRANSAC_KEYS = ("tipo", "cuenta_origen", "cuenta_destino", "monto", "concepto")
 
 _log_callback = None
 _clients_callback = None
+_error_callback = None
 
 
-def set_callbacks(log_cb=None, clients_cb=None):
-    global _log_callback, _clients_callback
+def set_callbacks(log_cb=None, clients_cb=None, error_cb=None):
+    global _log_callback, _clients_callback, _error_callback
     _log_callback = log_cb
     _clients_callback = clients_cb
+    _error_callback = error_cb
 
 
 def _log(msg):
@@ -136,10 +138,21 @@ def manejar_cliente(conn, addr):
 
 def iniciar_servidor(host="0.0.0.0", port=5000):
     init_db()
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((host, port))
-    server.listen()
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((host, port))
+        server.listen()
+    except OSError as e:
+        msg = (
+            f"No se pudo abrir el puerto {port}:\n{e}\n\n"
+            "En Windows esto suele deberse al Firewall o a falta de permisos.\n"
+            "Ejecuta el servidor como Administrador o permite el acceso en el Firewall."
+        )
+        _log(f"ERROR: {e}")
+        if _error_callback:
+            _error_callback(msg)
+        return
     _log(f"Servidor escuchando en {host}:{port}...")
     while True:
         conn, addr = server.accept()

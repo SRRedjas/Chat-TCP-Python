@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import scrolledtext, messagebox
 import threading
 import main as servidor
 
@@ -63,7 +63,10 @@ def build_gui():
     def on_clients(snapshot):
         root.after(0, _update_clients, clients_listbox, clients_frame, snapshot)
 
-    servidor.set_callbacks(log_cb=on_log, clients_cb=on_clients)
+    def on_error(msg):
+        root.after(0, messagebox.showerror, "Error al iniciar el servidor", msg)
+
+    servidor.set_callbacks(log_cb=on_log, clients_cb=on_clients, error_cb=on_error)
 
     # ── Start server thread ────────────────────────────────────────
     threading.Thread(target=servidor.iniciar_servidor, daemon=True).start()
