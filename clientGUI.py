@@ -1,20 +1,12 @@
 import socket
 import threading
-import sys
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 from protocol import send_packet, send_raw, PacketReader
 
 
-if len(sys.argv) > 1:
-    server = sys.argv[1]
-else:
-    server = "localhost"
-
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((server, 5000))
-reader = PacketReader(client)
-
+client = None
+reader = None
 nombre_usuario = None
 
 
@@ -165,12 +157,41 @@ def hacer_registro():
         messagebox.showerror("Error", resp.get("message", "Error al registrar."))
 
 
+def conectar():
+    global client, reader
+    ip = entry_ip.get().strip() or "localhost"
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((ip, 5000))
+        client = sock
+        reader = PacketReader(client)
+        connect_frame.pack_forget()
+        login_frame.pack()
+        entry_usuario.focus()
+    except OSError as e:
+        messagebox.showerror("Error de conexión", f"No se pudo conectar a {ip}:5000\n{e}")
+
+
 root = tk.Tk()
 root.title("Chat TCP")
 root.resizable(False, False)
 
+# --- Pantalla de conexión ---
+connect_frame = tk.Frame(root, padx=30, pady=30)
+connect_frame.pack()
+
+tk.Label(connect_frame, text="IP del servidor:").grid(row=0, column=0, sticky=tk.W, pady=4)
+entry_ip = tk.Entry(connect_frame, width=28)
+entry_ip.insert(0, "localhost")
+entry_ip.grid(row=0, column=1, pady=4)
+entry_ip.bind("<Return>", lambda _e: conectar())
+
+tk.Button(connect_frame, text="Conectar", width=14, command=conectar).grid(
+    row=1, column=0, columnspan=2, pady=15
+)
+
+# --- Pantalla de login (oculta hasta conectar) ---
 login_frame = tk.Frame(root, padx=30, pady=30)
-login_frame.pack()
 
 tk.Label(login_frame, text="Usuario:").grid(row=0, column=0, sticky=tk.W, pady=4)
 entry_usuario = tk.Entry(login_frame, width=28)
@@ -187,5 +208,4 @@ btn_frame.grid(row=2, column=0, columnspan=2, pady=15)
 tk.Button(btn_frame, text="Iniciar sesión", width=14, command=hacer_login).pack(side=tk.LEFT, padx=5)
 tk.Button(btn_frame, text="Registrarse",    width=14, command=hacer_registro).pack(side=tk.LEFT, padx=5)
 
-entry_usuario.focus()
 root.mainloop()

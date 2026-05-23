@@ -7,6 +7,8 @@ from protocol import send_packet, PacketReader
 clientes = []
 clientes_lock = threading.Lock()
 
+_TRANSAC_KEYS = ("tipo", "cuenta_origen", "cuenta_destino", "monto", "concepto")
+
 _log_callback = None
 _clients_callback = None
 
@@ -55,15 +57,13 @@ def send_server_message(texto):
     _log(f"[Servidor -> todos] {texto}")
 
 
-def _trama_from_packet(packet):
-    return "|".join([
-        "TRANSAC",
-        packet.get("tipo", ""),
-        packet.get("cuenta_origen", ""),
-        packet.get("cuenta_destino", ""),
-        packet.get("monto", ""),
-        packet.get("concepto", ""),
-    ])
+def _parse_trama(raw):
+    """Parsea una trama cruda 'TRANSAC|...' y devuelve un dict o None si es inválida."""
+    partes = raw.split("|")
+    if partes[0] != "TRANSAC" or len(partes) != 6:
+        return None
+    return {"tipo": partes[1], "cuenta_origen": partes[2],
+            "cuenta_destino": partes[3], "monto": partes[4], "concepto": partes[5]}
 
 
 def manejar_cliente(conn, addr):
@@ -73,7 +73,7 @@ def manejar_cliente(conn, addr):
     try:
         while usuario is None:
             packet = reader.recv_packet()
-            if not packet:
+            if packet is None or isinstance(packet, str):
                 return
 
             tipo = packet.get("type")
@@ -105,23 +105,25 @@ def manejar_cliente(conn, addr):
         _notify_clients()
 
         while True:
-            packet = reader.recv_packet()
-            if not packet:
+            data = reader.recv_packet()
+            if data is None:
                 break
 
-            if packet.get("type") == "message":
-                texto = packet.get("texto", "")
+            if isinstance(data, str):
+                campos = _parse_trama(data)
+                if campos is None:
+                    _log(f"{usuario} trama inválida: {data!r}")
+                    continue
+                guardar_mensaje(usuario, data)
+                _log(f"{usuario} -> {data}")
+                broadcast({"type": "transac", "usuario": usuario, **campos}, conn)
+                continue
+
+            if data.get("type") == "message":
+                texto = data.get("texto", "")
                 guardar_mensaje(usuario, texto)
                 _log(f"{usuario}: {texto}")
                 broadcast({"type": "message", "usuario": usuario, "texto": texto}, conn)
-
-            elif packet.get("type") == "transac":
-                trama = _trama_from_packet(packet)
-                guardar_mensaje(usuario, trama)
-                _log(f"{usuario} -> {trama}")
-                out = {k: v for k, v in packet.items()}
-                out["usuario"] = usuario
-                broadcast(out, conn)
 
     finally:
         conn.close()

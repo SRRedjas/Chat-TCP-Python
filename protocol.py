@@ -1,7 +1,5 @@
 import json
 
-_TRANSAC_KEYS = ("tipo", "cuenta_origen", "cuenta_destino", "monto", "concepto")
-
 
 def send_packet(conn, data):
     conn.sendall((json.dumps(data) + "\n").encode())
@@ -27,8 +25,4 @@ class PacketReader:
         try:
             return json.loads(decoded)
         except json.JSONDecodeError:
-            parts = decoded.split("|")
-            if parts[0] == "TRANSAC" and len(parts) == 6:
-                return {"type": "transac", "trama": decoded,
-                        **dict(zip(_TRANSAC_KEYS, parts[1:]))}
-            return None
+            return decoded  # trama cruda; el receptor decide cómo parsearla
