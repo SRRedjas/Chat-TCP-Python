@@ -1,13 +1,12 @@
 import socket
 import threading
 from datetime import datetime
-from db import init_db, guardar_mensaje, validar_usuario, crear_usuario
+from db import (init_db, guardar_mensaje, validar_usuario, crear_usuario,
+                obtener_productos, registrar_venta)
 from protocol import send_packet, PacketReader
 
 clientes = []
 clientes_lock = threading.Lock()
-
-_TRANSAC_KEYS = ("tipo", "cuenta_origen", "cuenta_destino", "monto", "concepto")
 
 _log_callback = None
 _clients_callback = None
@@ -93,7 +92,7 @@ def manejar_cliente(conn, addr):
             elif tipo == "login":
                 if validar_usuario(usr, pwd):
                     usuario = usr
-                    send_packet(conn, {"status": "ok", "message": f"Bienvenido, {usuario}"})
+                    send_packet(conn, {"status": "ok", "usuario": usuario, "message": f"Bienvenido, {usuario}"})
                 else:
                     send_packet(conn, {"status": "error", "message": "Credenciales incorrectas."})
 
@@ -121,7 +120,27 @@ def manejar_cliente(conn, addr):
                 broadcast({"type": "transac", "usuario": usuario, **campos}, conn)
                 continue
 
-            if data.get("type") == "message":
+            if data.get("type") == "get_products":
+                products = obtener_productos()
+                send_packet(conn, {"type": "products_list", "products": products})
+
+            elif data.get("type") == "sale":
+                items = data.get("items", [])
+                try:
+                    venta_id, total, detalle = registrar_venta(usuario, items)
+                    send_packet(conn, {
+                        "type": "sale_result", "status": "ok",
+                        "venta_id": venta_id, "total": total, "detalle": detalle,
+                    })
+                    broadcast({
+                        "type": "sale_broadcast",
+                        "usuario": usuario, "venta_id": venta_id, "total": total,
+                    }, conn)
+                    _log(f"{usuario} registró venta #{venta_id} por ${total:.2f}")
+                except ValueError as e:
+                    send_packet(conn, {"type": "sale_result", "status": "error", "message": str(e)})
+
+            elif data.get("type") == "message":
                 texto = data.get("texto", "")
                 guardar_mensaje(usuario, texto)
                 _log(f"{usuario}: {texto}")
